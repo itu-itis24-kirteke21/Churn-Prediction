@@ -6,9 +6,14 @@ def load_data(filepath):
     """Load data from a Parquet file."""
     return pd.read_parquet(filepath)
 
-def feature_engineering(df):
-    """Apply feature engineering steps."""
+def feature_engineering(df, config=None):
+    """Apply feature engineering steps based on configuration."""
     df = df.copy()
+    
+    # Default to one_hot if config is not provided
+    encoding_strategy = 'one_hot'
+    if config and 'encoding' in config:
+        encoding_strategy = config['encoding']
     
     # Binary encoding
     binary_cols = ['Partner', 'Dependents', 'PhoneService', 'PaperlessBilling', 'Churn']
@@ -20,10 +25,6 @@ def feature_engineering(df):
     if 'Gender' in df.columns:
         df['Gender'] = df['Gender'].map({'Female': 1, 'Male': 0})
 
-    # One-Hot Encoding
-    # Identify categorical columns that are not yet encoded
-    # Note: 'SeniorCitizen' is already 0/1 int.
-    
     cat_cols = [
         'MultipleLines', 'InternetService', 'OnlineSecurity', 'OnlineBackup', 
         'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 
@@ -32,15 +33,15 @@ def feature_engineering(df):
     
     # Ensure they exist
     cat_cols = [c for c in cat_cols if c in df.columns]
-    
-    # Get dummies
-    df = pd.get_dummies(df, columns=cat_cols, drop_first=True)
-    
-    # "drop_first=True" helps avoid multicollinearity for linear models, 
-    # but for tree models consistent features are often fine. 
-    # Given we might use various models, drop_first is a safe bet for general "feature engineered" sets used in regression etc.
-    # However, 'No internet service' vs 'No' vs 'Yes' implies 3 states. dropping one leaves 2. 
-    
+
+    if encoding_strategy == 'one_hot':
+        # Get dummies
+        df = pd.get_dummies(df, columns=cat_cols, drop_first=True)
+    elif encoding_strategy == 'no_encoding':
+        # Convert objects to category type for XGBoost
+        for col in cat_cols:
+            df[col] = df[col].astype('category')
+            
     return df
 
 def main():

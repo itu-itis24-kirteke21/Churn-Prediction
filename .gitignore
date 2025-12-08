@@ -3,4 +3,13 @@ project_info/
 read_pdf.py
 pdf_content.txt
 artifacts/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+.ipynb_checkpoints/
+
+
 

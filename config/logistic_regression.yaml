@@ -1,0 +1,8 @@
+model:
+  name: logistic_regression
+  params:
+    solver: liblinear
+    C: 1.0
+
+feature_engineering:
+  encoding: one_hot

@@ -9,25 +9,27 @@ def load_data(filepath):
     """Load data from a Parquet file."""
     return pd.read_parquet(filepath)
 
-def train_model(df):
+def train_model(df, params=None):
     """Train a Logistic Regression model."""
+    if params is None:
+        params = {'solver': 'liblinear', 'random_state': 42}
+        
     # Separate features and target
     X = df.drop(columns=['Churn'])
     y = df['Churn']
     
     # Initialize and train the model
-    # Using 'liblinear' solver as it's good for smaller datasets and binary classification
-    model = LogisticRegression(solver='liblinear', random_state=42)
+    model = LogisticRegression(**params)
     model.fit(X, y)
     
     return model, X, y
 
-def evaluate_model(model, X, y):
+def evaluate_model(model, X, y, dataset_name="Training"):
     """Evaluate the model and print metrics."""
     y_pred = model.predict(X)
     y_prob = model.predict_proba(X)[:, 1]
     
-    print("--- Model Performance on Training Data ---")
+    print(f"--- Model Performance on {dataset_name} Data ---")
     print(f"Accuracy: {accuracy_score(y, y_pred):.4f}")
     print(f"ROC AUC: {roc_auc_score(y, y_prob):.4f}")
     print("\nClassification Report:")
