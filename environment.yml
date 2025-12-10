@@ -1,0 +1,23 @@
+name: churn-prediction
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pandas
+  - numpy
+  - scikit-learn
+  - xgboost
+  - jupyter
+  - pytest
+  - pip
+  - pip:
+    - mlflow
+    - fastapi
+    - uvicorn
+    - pydantic
+    - evidently
+    - python-dotenv
+    - streamlit
+    - pypdf
+    - PyYAML

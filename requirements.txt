@@ -1,11 +1,13 @@
 pandas
-numpy
+numpy<2.0
 scikit-learn
 mlflow
 fastapi
 uvicorn
 pydantic
-evidently
+evidently==0.4.16
+python-dotenv
+sniffio
 streamlit
 pytest
 jupyter

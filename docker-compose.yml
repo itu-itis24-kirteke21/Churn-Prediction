@@ -1,29 +1,68 @@
 version: '3.8'
 
 services:
+  # FastAPI prediction service
   api:
     build: .
     ports:
       - "8000:8000"
     volumes:
       - ./src:/app/src
-      - ./models:/app/models
+      - ./config:/app/config
+      - ./artifacts:/app/artifacts
+      - ./Data:/app/Data
+    env_file:
+      - .env
     command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 
+  # Streamlit UI
   ui:
-    image: python:3.9-slim
+    build: .
     working_dir: /app
     volumes:
       - ./ui:/app/ui
-      - ./requirements.txt:/app/requirements.txt
-    command: sh -c "pip install -r requirements.txt && streamlit run ui/app.py"
+      - ./reports:/app/reports
     ports:
       - "8501:8501"
+    command: streamlit run ui/app.py --server.address 0.0.0.0
     depends_on:
       - api
 
+  # MLflow tracking server
   mlflow:
     image: ghcr.io/mlflow/mlflow
     ports:
-      - "5000:5000"
+      - "5001:5000"
+    volumes:
+      - ./mlruns:/mlruns
+      - ./mlflow.db:/mlflow.db
     command: mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns --host 0.0.0.0
+
+  # Monitoring service - runs Evidently reports
+  monitoring:
+    build: .
+    volumes:
+      - ./src:/app/src
+      - ./Data:/app/Data
+      - ./reports:/app/reports
+    env_file:
+      - .env
+    command: python run_monitoring.py --output-dir reports
+    profiles:
+      - monitoring # Only runs when explicitly called
+
+  # Monitoring dashboard - Streamlit for viewing reports
+  monitoring-dashboard:
+    build: .
+    volumes:
+      - ./ui:/app/ui
+      - ./reports:/app/reports
+      - ./Data:/app/Data
+      - ./src:/app/src
+    ports:
+      - "8502:8501"
+    env_file:
+      - .env
+    command: streamlit run ui/monitoring_dashboard.py --server.address 0.0.0.0
+    profiles:
+      - monitoring # Only runs when explicitly called
