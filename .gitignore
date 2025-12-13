@@ -10,6 +10,9 @@ __pycache__/
 .env
 .venv
 .ipynb_checkpoints/
+mlruns/
+mlflow.db
+.DS_Store
 
 
 
