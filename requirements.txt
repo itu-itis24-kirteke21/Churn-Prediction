@@ -12,3 +12,4 @@ jupyter
 pypdf
 xgboost
 PyYAML
+pyarrow
