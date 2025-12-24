@@ -16,6 +16,8 @@ venv/
 *.log
 *_output.txt
 debug_output*.txt
+mlruns/
+.DS_Store
 
 
 
