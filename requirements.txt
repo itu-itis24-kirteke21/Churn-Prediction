@@ -4,11 +4,12 @@ scikit-learn
 mlflow
 fastapi
 uvicorn
-pydantic
-evidently
+pydantic>=2.0
+evidently==0.6.0
 streamlit
 pytest
 jupyter
 pypdf
 xgboost
 PyYAML
+pyarrow

@@ -1,5 +1,5 @@
 Data/
-project_info/
+#project_info/
 read_pdf.py
 pdf_content.txt
 artifacts/
@@ -10,6 +10,12 @@ __pycache__/
 .env
 .venv
 .ipynb_checkpoints/
+mlflow.db
+reports/
+venv/
+*.log
+*_output.txt
+debug_output*.txt
 
 
 

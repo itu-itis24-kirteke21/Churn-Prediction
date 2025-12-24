@@ -7,16 +7,16 @@ services:
       - "8000:8000"
     volumes:
       - ./src:/app/src
-      - ./models:/app/models
+      - ./artifacts:/app/artifacts
     command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 
   ui:
-    image: python:3.9-slim
+    image: python:3.11-slim
     working_dir: /app
     volumes:
       - ./ui:/app/ui
       - ./requirements.txt:/app/requirements.txt
-    command: sh -c "pip install -r requirements.txt && streamlit run ui/app.py"
+    command: sh -c "pip install -r requirements.txt && streamlit run ui/app.py --server.address=0.0.0.0"
     ports:
       - "8501:8501"
     depends_on:
