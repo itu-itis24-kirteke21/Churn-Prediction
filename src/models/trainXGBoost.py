@@ -84,7 +84,11 @@ def main():
             model, X, y = train_model(df, test_params)
             evaluate_model(model, X, y, dataset_name="Test-Run")
             
-        print("\n PROCESS COMPLETE! Results have been saved to MLflow.")
+            # Save locally
+            model_output_path = os.path.join(base_dir, 'artifacts', 'xgboost_model.pkl')
+            save_model(model, model_output_path)
+            
+        print("\n PROCESS COMPLETE! Results have been saved to MLflow and locally.")
 
     except Exception as e:
         print(f"Error: {e}")

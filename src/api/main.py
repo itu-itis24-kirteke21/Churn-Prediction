@@ -1,4 +1,5 @@
 import pickle
+import json
 import pandas as pd
 import numpy as np
 import os
@@ -9,28 +10,62 @@ from typing import Literal
 app = FastAPI(title="Telco Churn Prediction API")
 
 # --- Configuration & Model Loading ---
-MODEL_PATH = "artifacts/xgboost.pkl"
+# --- Configuration & Model Loading ---
+MODEL_DIR = "artifacts"
+METADATA_PATH = os.path.join(MODEL_DIR, "champion_metadata.json")
 model = None
 
-@app.on_event("startup")
-def load_model():
+def get_champion_path():
+    """Determine the path of the current champion model."""
+    # Default to XGBoost if no metadata
+    model_file = "xgboost_model.pkl" 
+    
+    if os.path.exists(METADATA_PATH):
+        try:
+            with open(METADATA_PATH, "r") as f:
+                meta = json.load(f)
+                champion = meta.get("champion", "XGBoost")
+                
+            if champion == "LogisticRegression":
+                model_file = "logistic_regression.pkl"
+            else:
+                model_file = "xgboost_model.pkl"
+                
+            print(f"Selecting Champion Model: {champion} ({model_file})")
+        except Exception as e:
+            print(f"Error reading metadata, defaulting to XGBoost: {e}")
+            
+    return os.path.join(MODEL_DIR, model_file)
+
+def _load_model_logic():
     global model
     try:
-        # Check if running in Docker or local
-        path = MODEL_PATH
+        path = get_champion_path()
         if not os.path.exists(path):
-            # Try finding it relative to this file if running locally not from root
-            # This file is in src/api/main.py, artifacts is in artifacts/
-            # So ../../artifacts/xgboost.pkl
+            # Fallback for local run vs docker
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            path = os.path.join(base_dir, "artifacts", "xgboost.pkl")
+            path = os.path.join(base_dir, path)
             
+        if not os.path.exists(path):
+             print(f"Error: Model file not found at {path}")
+             return
+
         with open(path, "rb") as f:
             model = pickle.load(f)
         print(f"Model loaded successfully from {path}")
     except Exception as e:
         print(f"Error loading model: {e}")
-        # We don't raise here to allow API to start, but predict will fail
+
+@app.on_event("startup")
+def load_model():
+    _load_model_logic()
+
+@app.post("/reload")
+def reload_model():
+    """Endpoint to trigger model reloading."""
+    _load_model_logic()
+    return {"status": "Model reloaded", "champion_path": get_champion_path()}
+
         
 # --- Data Schema ---
 class CustomerData(BaseModel):
@@ -67,35 +102,42 @@ def preprocess_input(data: CustomerData, model_features: list) -> pd.DataFrame:
     
     df = pd.DataFrame([input_dict])
     
-    # Binary Encodings
+    # --- FEATURE ENGINEERING (Must match src/feature_engineering.py) ---
+    
+    # 1. Binary Encoding
     binary_cols = ['Partner', 'Dependents', 'PhoneService', 'PaperlessBilling']
     for col in binary_cols:
-        df[col] = df[col].map({'Yes': 1, 'No': 0})
-        
-    # Gender Encoding
-    df['Gender'] = df['Gender'].map({'Female': 1, 'Male': 0})
-    
-    # Ensure categorical columns are treated as category dtype if model expects it
-    # Based on feature_engineering.py, if 'no_encoding' was used (which implies XGBoost native Cat support),
-    # we cast to 'category'.
-    # List of categoricals from feature_engineering.py
-    cat_cols = [
-        'MultipleLines', 'InternetService', 'OnlineSecurity', 'OnlineBackup', 
-        'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 
-        'Contract', 'PaymentMethod'
-    ]
-    
-    for col in cat_cols:
         if col in df.columns:
-            df[col] = df[col].astype('category')
+            df[col] = df[col].map({'Yes': 1, 'No': 0})
+        
+    # 2. Gender Encoding
+    if 'Gender' in df.columns:
+        df['Gender'] = df['Gender'].map({'Female': 1, 'Male': 0})
+    
+    # 3. Handle Categorical Columns (One-Hot Logic to match training default)
+    # We must replicate the 'one_hot' strategy by default as typical models (LogReg, basic XGB) use it unless strictly separated.
+    # If the loaded model expects raw categories (XGB special), the 'model_features' check below handles appropriate selection,
+    # BUT if 'model_features' has OHE cols, we MUST generate them.
+    
+    # Check if we need to OHE?
+    # Simple heuristic: If model_features contains "Contract_Two year", we need to OHE.
+    needs_ohe = any('_' in feat for feat in model_features if feat not in df.columns)
+    
+    if needs_ohe:
+        cat_cols = [
+            'MultipleLines', 'InternetService', 'OnlineSecurity', 'OnlineBackup', 
+            'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 
+            'Contract', 'PaymentMethod'
+        ]
+        df = pd.get_dummies(df, columns=[c for c in cat_cols if c in df.columns], drop_first=True)
             
-    # Reorder columns to match model training
-    # Add missing columns if any (shouldn't be with strict schema, but for safety)
+    # 4. ALIGNMENT (Crucial for Single-Row Prediction)
+    # Ensure all model features exist, fill missing with 0
     for feature in model_features:
         if feature not in df.columns:
-            # Check if it's one of the columns we might have missed or transformed differently
-            pass
+            df[feature] = 0
             
+    # Remove extra columns that model doesn't know
     df = df[model_features]
     
     return df

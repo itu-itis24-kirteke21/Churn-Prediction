@@ -13,7 +13,8 @@ $VenvPath = ".\venv\Scripts\Activate.ps1"
 if (Test-Path $VenvPath) {
     Write-Host "Activating virtual environment..."
     . $VenvPath
-} else {
+}
+else {
     Write-Host "Warning: Virtual environment not found at $VenvPath. Running with system python."
 }
 
@@ -25,12 +26,31 @@ try {
     python run_monitoring.py --current-data "Data/Interim/cleaned_test.parquet"
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "Monitoring finished successfully."
-    } else {
-        Write-Host "Monitoring reported issues (Exit Code: $LASTEXITCODE)"
+        Write-Host "Monitoring finished successfully. No severe drift detected."
     }
-} catch {
-    Write-Host "Error running monitoring script: $_"
+    else {
+        Write-Host "Monitoring reported issues (Exit Code: $LASTEXITCODE). Initiating RETRAINING..."
+        
+        # 3. Automated Retraining
+        # We pass the data that caused the drift as the "new data" to include in training
+        python src/retrain_models.py --new-data "Data/Interim/feature_engineered_test.parquet"
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Retraining completed successfully."
+        }
+        else {
+            Write-Host "Retraining failed!"
+            exit 1
+        }
+    }
+
+    # 4. Champion vs Challenger Comparison
+    Write-Host "Running Champion/Challenger Comparison..."
+    python src/models/compare_models.py --current-data "Data/Interim/feature_engineered_test.parquet"
+
+}
+catch {
+    Write-Host "Error during pipeline execution: $_"
 }
 
 Write-Host "=================================="

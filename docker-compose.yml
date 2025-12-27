@@ -16,6 +16,9 @@ services:
     volumes:
       - ./ui:/app/ui
       - ./requirements.txt:/app/requirements.txt
+      - ./artifacts:/app/artifacts
+      - ./reports:/app/reports
+      - ./monitoring_log.json:/app/monitoring_log.json
     command: sh -c "pip install -r requirements.txt && streamlit run ui/app.py --server.address=0.0.0.0"
     ports:
       - "8501:8501"
