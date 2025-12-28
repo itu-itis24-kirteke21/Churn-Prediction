@@ -6,6 +6,17 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
 import mlflow        
 import mlflow.sklearn
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# Force set the URI to ensure it goes to the DB (Absolute Path)
+base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+db_path = os.path.join(base_dir, "mlflow.db")
+mlflow.set_tracking_uri(f"sqlite:///{db_path}")
+
 
 def load_data(filepath):
     """Load data from a Parquet file."""

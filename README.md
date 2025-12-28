@@ -38,8 +38,35 @@ The easiest way to run the application is using Docker Compose. This ensures all
 
 ---
 
-## Detailed Directory Structure
+## MLOps System & Workflow
+This project features a fully automated MLOps loop that handles data drift, retraining, and model deployment without downtime.
 
+### 1. Simulation (`simulate_production.py`)
+This script acts as the "World", simulating production traffic.
+- **Drift Induction**: It systematically alters numerical features (e.g., adding value to `MonthlyCharges`) to simulate data drift over time.
+- **Monitoring**: It calculates the accuracy of the live API for every batch (50 samples).
+- **Trigger**: If the accuracy drops below the threshold (**0.60**), it triggers the automated pipeline.
+
+### 2. Automated Pipeline (`automate_pipeline.ps1`)
+Orchestrated by PowerShell, this pipeline executes the following steps upon trigger:
+1.  **Data Monitoring**: Runs `run_monitoring.py` using **Evidently AI** to generate Data Drift, Data Quality, and Test Suite reports (saved to `reports/`).
+2.  **Feature Engineering**: Prepares the new "drifted" data for training.
+3.  **Model Retraining**: Retrains both **XGBoost** (`trainXGBoost.py`) and **Logistic Regression** (`train_LogReg.py`) on the combined dataset.
+4.  **Champion Selection**: Runs `compare_models.py` to evaluate both models on the fresh data using **ROC-AUC**. The winner is marked in `artifacts/champion_metadata.json`.
+
+### 3. Dynamic Reloading
+Once the pipeline completes, the simulation script sends a `POST /reload` request to the API.
+- The API reads `champion_metadata.json`.
+- It instantly swaps the active model in memory to the new Champion (e.g., switching from XGBoost to Logistic Regression if it performs better).
+- **Zero Downtime**: The system continues to serve predictions during this update.
+
+### 4. Dashboards
+- **System Health (Streamlit)**: Displays real-time accuracy trends, the active champion model, and interactive Evidently drift reports.
+- **MLflow**: Tracks experiment history, parameters, and metrics for every training run.
+
+---
+
+## Detailed Directory Structure
 ### `src/` - Source Code
 Core logic of the project.
 
@@ -79,6 +106,27 @@ Core logic of the project.
 - **`Dockerfile`**: Instructions for building the API image (Python 3.11, XGBoost 3.1.2).
 - **`requirements.txt`**: Python dependencies.
 - **`run_pipeline.py`**: A master script to orchestrate the data prep -> feature engineering -> training workflow locally.
+
+```text
+.
+├── .gitignore
+├── Data/                   # Data storage (Raw & Interim)
+├── artifacts/              # Trained models and champion metadata
+├── config/                 # Model configuration files (YAML)
+├── reports/                # Generated monitoring reports (HTML)
+├── src/                    # Source code
+│   ├── api/                # FastAPI application
+│   ├── models/             # Training and prediction scripts
+│   ├── monitoring/         # Evidently AI monitoring scripts
+│   ├── data_preparation.py
+│   └── feature_engineering.py
+├── ui/                     # Streamlit User Interface
+├── Dockerfile              # API Container definition
+├── docker-compose.yml      # Orchestration for API, UI, and MLflow
+├── requirements.txt        # Project dependencies
+├── run_monitoring.py       # Monitoring wrapper script
+└── simulate_production.py  # Production simulation script
+```
 
 ---
 

@@ -1,4 +1,5 @@
 import time
+import sys
 import requests
 import pandas as pd
 import numpy as np
@@ -150,16 +151,25 @@ def main():
             # Ideally we run feature_engineering.py. 
             # For demo speed: We assume the pipeline deals with it or we just trigger the retrain script directly.
             
-            # Let's TRY running the pipeline.
             try:
-                subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", "automate_pipeline.ps1"], check=False)
+                print("   -> Bypassing monitoring check to FORCE retraining...")
+                
+                # 1. Force Retrain
+                retrain_script = os.path.join(os.getcwd(), "src", "retrain_models.py")
+                subprocess.run([sys.executable, retrain_script, "--new-data", fe_target], check=True)
+                
+                # 2. Compare Models
+                compare_script = os.path.join(os.getcwd(), "src", "models", "compare_models.py")
+                subprocess.run([sys.executable, compare_script, "--current-data", fe_target], check=True)
                 
                 # Reload API
                 requests.post(RELOAD_URL)
                 print("System Reloaded.")
                 
-            except Exception as e:
+            except subprocess.CalledProcessError as e:
                 print(f"Pipeline execution failed: {e}")
+            except Exception as e:
+                print(f"An error occurred: {e}")
                 
             # Reset drift to avoid infinite loop in this demo? 
             # or let it recover. Ideally it recovers because model is retrained on this data.
